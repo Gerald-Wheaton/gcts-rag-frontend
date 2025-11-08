@@ -1,0 +1,355 @@
+# Cursor Rules for GCTS Handbook Frontend
+
+## Project Overview
+
+This is a Next.js application with TypeScript that implements a LangGraph-orchestrated RAG system for querying a faculty handbook. The system uses Pinecone for vector storage, MongoDB for conversation history and chunk content, and OpenAI for embeddings and LLM capabilities.
+
+## LangGraph Node Development
+
+### 1. Node Abstraction
+
+Each node is a pure function that:
+- Takes state as input
+- Returns partial state updates
+- Has single responsibility
+- Is independently testable
+- Never mutates state directly
+
+### 2. Node Function Signature
+
+```typescript
+async function nodeName(state: HandbookGraphStateType): Promise<PartialHandbookState> {
+  try {
+    // Validate inputs with Zod
+    // Perform single task
+    // Return only changed fields
+    // Handle errors gracefully
+  } catch (error) {
+    console.error('[nodeName] Error:', error);
+    return {
+      error: `Failed to ${action}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
+  }
+}
+```
+
+### 3. Error Handling
+
+Every node must:
+- Wrap all logic in try-catch blocks
+- Return `{ error: string }` on failure
+- Never throw uncaught errors
+- Log errors with context using `console.error('[nodeName] Error:', error)`
+- Provide descriptive error messages that help debugging
+
+### 4. Type Safety
+
+- Define Zod schemas for all data structures in `types/langgraph.ts`
+- Validate external inputs (LLM responses, API calls, database queries)
+- Use TypeScript strict mode
+- Export inferred types from Zod schemas using `z.infer<typeof Schema>`
+- Always parse external data with Zod before using it
+
+### 5. Streaming
+
+- Use `streamEvents` or `stream` from LangGraph for graph-level streaming
+- Implement separate streaming functions for nodes that need it (e.g., `synthesizeAnswerStreaming`)
+- Emit partial updates for answer synthesis
+- Handle stream errors gracefully with fallback responses
+
+### 6. Testing
+
+- Unit test each node with mock state
+- Test error conditions (missing data, API failures)
+- Test edge conditional logic
+- Integration test full graph flow
+- Test with various query types (clear, ambiguous, complex)
+
+### 7. Node Naming Convention
+
+- Use verb-based names: `analyzeQuery`, `retrieveVectors`, `formatCitations`
+- Be specific about the task: not `process`, `handle`, or `execute`
+- Match function name to node name in graph
+- Export node functions from dedicated files in `lib/langgraph/nodes/`
+
+### 8. State Updates
+
+- Return minimal state changes (only fields that changed)
+- Use annotation reducers for arrays (concat for message history)
+- Never mutate state directly
+- Document state transitions in comments
+- Use the default reducer (replacement) for single values
+
+### 9. LLM Calls
+
+- Always use structured output when possible with `.withStructuredOutput(ZodSchema)`
+- Validate LLM responses with Zod immediately
+- Implement retry logic for rate limits with exponential backoff
+- Set appropriate timeouts based on operation
+- Use low temperature (0.1-0.3) for consistent, factual responses
+- Use higher temperature (0.4-0.7) only for creative tasks
+
+### 10. Conditional Edges
+
+- Implement as pure functions with no side effects
+- Return string matching the next node name or 'end'
+- Handle all possible state conditions
+- Default to error handling or 'end' for unexpected states
+- Document routing logic clearly
+
+## MongoDB Practices
+
+### 1. Connection Management
+
+- Use the shared `getDatabase()` function from `lib/mongodb.ts`
+- Never create new MongoClient instances in application code
+- Handle connection errors gracefully
+
+### 2. Collection Access
+
+- Use helper functions from `lib/mongodb/conversations.ts`
+- Create indexes on application startup for performance
+- Use descriptive collection names from config
+
+### 3. Queries
+
+- Use TypeScript types for query results
+- Handle missing documents gracefully
+- Use projections to limit returned fields when possible
+- Index frequently queried fields
+
+## Pinecone Practices
+
+### 1. Index Access
+
+- Use `getPineconeIndex()` helper from `lib/pinecone.ts`
+- Include namespace in queries if using namespaces
+- Handle connection errors gracefully
+
+### 2. Queries
+
+- Always specify `topK`, `includeMetadata`, and `namespace`
+- Use metadata filters to narrow results when possible
+- Validate vector dimensions before querying (3072 for text-embedding-3-large)
+- Handle empty results gracefully
+
+### 3. Metadata
+
+- Use consistent metadata field names across chunks
+- Include section_path, section_type, stakeholder_groups, approval_authority
+- Keep metadata under Pinecone's size limits
+
+## API Route Development
+
+### 1. Request Validation
+
+- Always validate request body with Zod schemas
+- Return 400 status with descriptive error for validation failures
+- Validate URL parameters and query strings
+
+### 2. Error Responses
+
+- Use consistent ApiResponse type from `types/index.ts`
+- Include success boolean, error message, and optional data
+- Return appropriate HTTP status codes (400, 404, 500)
+- Log errors with context
+
+### 3. Streaming Responses
+
+- Use Server-Sent Events (SSE) for streaming
+- Set appropriate headers: `Content-Type: text/event-stream`, `Cache-Control: no-cache`
+- Send data in format: `data: ${JSON.stringify(payload)}\n\n`
+- Always close the stream with controller.close()
+- Handle client disconnections gracefully
+
+## Configuration Management
+
+### 1. Environment Variables
+
+- Never commit .env files
+- Use .env.local for local development
+- Document all required variables in README.md
+- Validate required env vars at runtime in critical paths
+
+### 2. Application Config
+
+- Centralize configuration in `lib/langgraph/config.ts`
+- Use TypeScript const assertions for type safety
+- Document each config option with comments
+- Make configs easily adjustable without code changes
+
+## Conversation Management
+
+### 1. Message History
+
+- Store full conversation history in MongoDB
+- Include timestamps on all messages
+- Attach citations to assistant messages
+- Auto-generate descriptive conversation titles
+
+### 2. Conversation Context
+
+- Include relevant message history in LLM prompts (last 4-8 messages)
+- Use conversation context for query analysis
+- Maintain continuity in multi-turn conversations
+
+## Code Organization
+
+### 1. File Structure
+
+```
+lib/
+  langgraph/
+    config.ts           # Configuration
+    state.ts            # State annotation
+    edges.ts            # Routing logic
+    graph.ts            # Graph assembly
+    nodes/
+      analyzeQuery.ts   # Individual node files
+      embedQuery.ts
+      ...
+  mongodb/
+    conversations.ts    # MongoDB helpers
+  mongodb.ts            # MongoDB connection
+  pinecone.ts          # Pinecone connection
+  openai.ts            # OpenAI client
+types/
+  langgraph.ts         # LangGraph types
+  index.ts             # General types
+app/
+  api/
+    handbook/
+      query/
+        route.ts       # Main query endpoint
+      conversations/
+        route.ts       # List/create conversations
+        [id]/
+          route.ts     # Get/update/delete conversation
+```
+
+### 2. Imports
+
+- Use absolute imports with `@/` prefix
+- Import types with `type` keyword: `import type { Type } from '...'`
+- Group imports: external packages, then internal modules
+- Keep imports organized and minimal
+
+## Performance Considerations
+
+### 1. Vector Retrieval
+
+- Use topK limits to avoid over-fetching (default: 7 chunks)
+- Apply metadata filters when possible to narrow search
+- Use reranking to improve relevance of final results
+
+### 2. LLM Calls
+
+- Minimize token usage by truncating content previews
+- Use streaming for long responses
+- Cache conversation context appropriately
+- Use lower-cost models where appropriate (embeddings vs chat)
+
+### 3. Database Queries
+
+- Use indexes on frequently queried fields
+- Limit result sets with skip/limit
+- Project only needed fields
+- Batch operations when possible
+
+## Documentation
+
+### 1. Code Comments
+
+- Document purpose of each node/function
+- Explain complex logic or non-obvious decisions
+- Document state transitions
+- Include examples where helpful
+
+### 2. Type Definitions
+
+- Use JSDoc comments on Zod schemas to describe fields
+- Document valid ranges and formats
+- Explain relationships between types
+
+## Testing Strategy
+
+### 1. Unit Tests
+
+- Test each node independently with mock state
+- Test error conditions and edge cases
+- Test Zod schema validation
+- Mock external API calls
+
+### 2. Integration Tests
+
+- Test full graph execution with real state flow
+- Test API endpoints with sample requests
+- Test conversation management flows
+- Test streaming responses
+
+### 3. Manual Testing
+
+- Test with various query types and complexities
+- Verify citation accuracy
+- Check conversation continuity
+- Test error scenarios (API failures, network issues)
+
+## Common Patterns
+
+### 1. Retry Logic
+
+```typescript
+for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  try {
+    const result = await apiCall();
+    return result;
+  } catch (error) {
+    if (isRateLimitError(error) && attempt < maxAttempts - 1) {
+      await sleep(delayMs * Math.pow(2, attempt));
+      continue;
+    }
+    throw error;
+  }
+}
+```
+
+### 2. State Validation
+
+```typescript
+if (!state.requiredField) {
+  return {
+    error: 'Required field is missing',
+  };
+}
+```
+
+### 3. LLM Structured Output
+
+```typescript
+const llm = new ChatOpenAI({
+  modelName: 'gpt-4-turbo-preview',
+  temperature: 0.2,
+}).withStructuredOutput(MySchema);
+
+const result = await llm.invoke(prompt);
+const validated = MySchema.parse(result);
+```
+
+## Security Considerations
+
+- Never log sensitive data (API keys, user data)
+- Validate all user inputs
+- Use environment variables for secrets
+- Sanitize error messages sent to clients
+- Implement rate limiting on API endpoints (future)
+- Add authentication/authorization (future)
+
+## Deployment
+
+- Ensure all environment variables are set in production
+- Run database migrations/index creation on startup
+- Monitor error rates and API usage
+- Set up logging and observability
+- Use connection pooling for MongoDB
+- Handle graceful shutdowns
+
