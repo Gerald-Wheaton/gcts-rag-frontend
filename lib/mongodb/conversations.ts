@@ -226,27 +226,75 @@ export async function getChunksByPineconeIds(
     const db = await getDatabase()
     console.log('[MongoDB] Database name:', db.databaseName)
     console.log('[MongoDB] Collection name:', collection.collectionName)
-    
+
     // Check total count in collection
     const totalCount = await collection.countDocuments({})
     console.log('[MongoDB] Total documents in collection:', totalCount)
-    
+
     // Try to find ANY document
     const sampleDoc = await collection.findOne({})
     if (sampleDoc) {
       console.log('[MongoDB] Sample document keys:', Object.keys(sampleDoc))
       console.log('[MongoDB] Sample pinecone_id value:', sampleDoc.pinecone_id)
-      console.log('[MongoDB] Sample document (first 500 chars):', JSON.stringify(sampleDoc).substring(0, 500))
-      
+      console.log(
+        '[MongoDB] Sample document (first 500 chars):',
+        JSON.stringify(sampleDoc).substring(0, 500)
+      )
+
       // Try searching for the first ID directly
       const directSearch = await collection.findOne({
-        pinecone_id: pineconeIds[0]
+        pinecone_id: pineconeIds[0],
       })
-      console.log('[MongoDB] Direct search for first ID:', directSearch ? 'FOUND' : 'NOT FOUND')
+      console.log(
+        '[MongoDB] Direct search for first ID:',
+        directSearch ? 'FOUND' : 'NOT FOUND'
+      )
     } else {
       console.log('[MongoDB] Collection is empty or not accessible!')
     }
   }
+
+  return chunks
+}
+
+/**
+ * Get all chunks for a given section_path
+ * Handles both array and string formats for section_path
+ * Sorts by chunk_index ascending
+ *
+ * @param sectionPath - Section path as string (e.g., "Academic > Policies") or array (e.g., ["Academic", "Policies"])
+ * @returns Array of chunk documents sorted by chunk_index
+ */
+export async function getChunksBySectionPath(
+  sectionPath: string | string[]
+): Promise<any[]> {
+  const collection = await getHandbookChunksCollection()
+
+  // Normalize section_path for querying
+  // MongoDB stores as array, but we may receive as string
+  let query: any
+  if (Array.isArray(sectionPath)) {
+    query = { section_path: sectionPath }
+  } else {
+    // Convert string format "Academic > Policies" to array ["Academic", "Policies"]
+    const pathArray = sectionPath.split(' > ').map((s) => s.trim())
+    query = { section_path: pathArray }
+  }
+
+  console.log(
+    '[MongoDB] Querying chunks by section_path:',
+    Array.isArray(sectionPath) ? sectionPath : sectionPath
+  )
+
+  const chunks = await collection
+    .find(query)
+    .sort({ chunk_index: 1 }) // Sort by chunk_index ascending
+    .toArray()
+
+  console.log(
+    `[MongoDB] Found ${chunks.length} chunks for section_path:`,
+    Array.isArray(sectionPath) ? sectionPath.join(' > ') : sectionPath
+  )
 
   return chunks
 }

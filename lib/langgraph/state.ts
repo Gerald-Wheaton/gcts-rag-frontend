@@ -4,6 +4,7 @@ import type {
   AnalyzedQuery,
   RetrievedChunk,
   Citation,
+  ActionProposal,
 } from '@/types/langgraph';
 
 /**
@@ -96,6 +97,15 @@ export const HandbookGraphState = Annotation.Root({
    * Set by requestClarification node
    */
   clarificationRequest: Annotation<string | null>({
+    reducer: (x, y) => y ?? x,
+    default: () => null,
+  }),
+
+  /**
+   * Action proposal with 1-3 actionable courses
+   * Set by proposeAction node
+   */
+  actionProposal: Annotation<ActionProposal | null>({
     reducer: (x, y) => y ?? x,
     default: () => null,
   }),

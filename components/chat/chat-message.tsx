@@ -3,7 +3,6 @@
 import { cn } from '@/lib/utils'
 import type { Message } from './types'
 import { MessageStatusIcons } from './message-status-icons'
-import { MessageActions } from './message-actions'
 
 interface ChatMessageProps {
   message: Message
@@ -70,16 +69,6 @@ export function ChatMessage({
             isActionMessage && 'bg-background'
           )}
         >
-          {message.role === 'assistant' && (
-            <div className="absolute top-2 right-2 z-10">
-              <MessageActions
-                onBookmark={onBookmark || (() => {})}
-                onSaveAsAnswer={onSaveAsAnswer || (() => {})}
-                isBookmarked={message.isBookmarked || false}
-                isSaved={message.isSavedAsAnswer || false}
-              />
-            </div>
-          )}
           <p className="text-sm leading-relaxed">{message.content}</p>
           {message.citations &&
             message.citations.some((citation) => citation.precise_section) && (

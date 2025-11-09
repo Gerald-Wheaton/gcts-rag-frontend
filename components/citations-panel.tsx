@@ -38,8 +38,9 @@ export function CitationsPanel({
         section_path: citation.section_path,
         precise_section: citation.precise_section,
         content_preview: citation.content_preview,
+        content: citation.content, // Include full content for dialog display
       })
-      setSelectedCitation(`[${citation.number}] ${citation.precise_section}`)
+      setSelectedCitation(`${citation.precise_section}`)
     }
     onCitationClick(citationId)
   }
@@ -77,6 +78,7 @@ export function CitationsPanel({
                   section_path: citation.section_path,
                   precise_section: citation.precise_section,
                   content_preview: citation.content_preview,
+                  content: citation.content, // Include full content
                 }
                 return (
                   <div key={citation.pinecone_id} className="space-y-2">
