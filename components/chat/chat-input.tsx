@@ -48,22 +48,6 @@ export function ChatInput({
               className="min-h-[80px] pr-12 resize-none bg-background"
             />
             <div className="absolute bottom-3 right-3 flex items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              >
-                <Paperclip className="h-4 w-4" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              >
-                <Globe className="h-4 w-4" />
-              </Button>
               {hasMessages && (
                 <Tooltip>
                   <TooltipTrigger asChild>

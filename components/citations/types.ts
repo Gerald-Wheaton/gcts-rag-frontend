@@ -11,4 +11,5 @@ export interface CitationDetail {
   section_path: string
   precise_section: string
   content_preview: string
+  content?: string
 }
