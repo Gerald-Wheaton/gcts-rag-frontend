@@ -30,7 +30,7 @@ export function CitationCard({
       <FileText className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
       <div className="flex-1 space-y-1">
         <p className="text-xs font-medium leading-relaxed">
-          [{citation.number}] {citation.precise_section}
+          {citation.precise_section}
         </p>
         {citation.content_preview && (
           <p className="text-xs text-muted-foreground leading-relaxed line-clamp-3">

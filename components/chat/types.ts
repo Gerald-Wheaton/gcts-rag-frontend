@@ -4,6 +4,8 @@ export interface Message {
   role: "user" | "assistant"
   content: string
   citations?: Citation[]
+  isBookmarked?: boolean
+  isSavedAsAnswer?: boolean
 }
 
 export interface ChatWindowProps {
