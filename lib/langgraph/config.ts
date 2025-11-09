@@ -8,7 +8,7 @@ export const HANDBOOK_CONFIG = {
   retrieval: {
     topK: 7, // Number of chunks to retrieve from Pinecone
     rerankTopK: 5, // Number of chunks to use for synthesis after reranking
-    minSimilarity: 0.7, // Minimum similarity score to include chunk
+    minSimilarity: 0.4, // Minimum similarity score to include chunk (lowered to 0.4 for better recall)
   },
 
   /**
@@ -54,16 +54,16 @@ export const HANDBOOK_CONFIG = {
    */
   collections: {
     conversations: 'conversations',
-    handbookChunks: 'handbook_chunks', // Collection storing chunk content
+    handbookChunks: 'chunks', // Collection storing chunk content
   },
 
   /**
    * Pinecone namespace
    */
   pinecone: {
-    namespace: process.env.PINECONE_NAMESPACE || 'faculty-handbook-v1',
+    namespace: process.env.PINECONE_NAMESPACE || '',
   },
-} as const;
+} as const
 
 /**
  * System prompts for different LLM tasks
@@ -95,7 +95,10 @@ Provide a confidence score:
   /**
    * Answer synthesis prompt
    */
-  answerSynthesis: (context: string, history: string) => `You are an expert assistant for the GCTS Faculty Handbook. Your role is to provide accurate, helpful answers based strictly on the handbook content.
+  answerSynthesis: (
+    context: string,
+    history: string
+  ) => `You are an expert assistant for the GCTS Faculty Handbook. Your role is to provide accurate, helpful answers based strictly on the handbook content.
 
 Context from handbook:
 ${context}
@@ -119,7 +122,10 @@ Do not:
   /**
    * Relevance scoring prompt
    */
-  relevanceScoring: (query: string, chunks: string[]) => `You are evaluating the relevance of handbook sections to a user query.
+  relevanceScoring: (
+    query: string,
+    chunks: string[]
+  ) => `You are evaluating the relevance of handbook sections to a user query.
 
 User query: ${query}
 
@@ -131,14 +137,19 @@ For each of the following chunks, provide a relevance score from 0-10 where:
 - 0: Not relevant
 
 Chunks:
-${chunks.map((chunk, idx) => `[${idx}]: ${chunk.substring(0, 200)}...`).join('\n\n')}
+${chunks
+  .map((chunk, idx) => `[${idx}]: ${chunk.substring(0, 200)}...`)
+  .join('\n\n')}
 
 Provide scores and brief reasoning for each chunk.`,
 
   /**
    * Clarification request prompt
    */
-  clarificationRequest: (query: string, reason: string) => `You are helping a user clarify their question about a faculty handbook.
+  clarificationRequest: (
+    query: string,
+    reason: string
+  ) => `You are helping a user clarify their question about a faculty handbook.
 
 User's query: "${query}"
 
@@ -155,12 +166,14 @@ If applicable, suggest 2-4 specific options the user can choose from.`,
   /**
    * Conversation title generation
    */
-  titleGeneration: (firstQuery: string) => `Generate a concise, descriptive title (max 60 characters) for a conversation that starts with this question:
+  titleGeneration: (
+    firstQuery: string
+  ) => `Generate a concise, descriptive title (max 60 characters) for a conversation that starts with this question:
 
 "${firstQuery}"
 
 Return only the title, no quotes or extra text.`,
-} as const;
+} as const
 
 /**
  * Error messages
@@ -177,5 +190,4 @@ export const ERROR_MESSAGES = {
   RETRIEVAL_FAILED: 'Failed to retrieve relevant content',
   SYNTHESIS_FAILED: 'Failed to generate answer',
   INTERNAL_ERROR: 'An internal error occurred',
-} as const;
-
+} as const

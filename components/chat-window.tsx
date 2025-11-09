@@ -1,186 +1,277 @@
-'use client';
+'use client'
 
-import { useState, useRef, useEffect } from 'react';
-import { ChatMessage as ChatMessageType, Citation } from '@/types';
-import { ChatMessage } from './ChatMessage';
-import { ChatInput } from './ChatInput';
-import { CitationsPanel } from './CitationsPanel';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import type React from 'react'
 
-export function ChatWindow() {
-  const [messages, setMessages] = useState<ChatMessageType[]>([]);
-  const [citations, setCitations] = useState<Citation[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | undefined>();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+import { useState, useRef, useEffect } from 'react'
+import { Card } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import type { Message, ChatWindowProps } from './chat/types'
+import { ChatMessage } from './chat/chat-message'
+import { LoadingIndicator } from './chat/loading-indicator'
+import { EmptyState } from './chat/empty-state'
+import { ChatInput } from './chat/chat-input'
+import { proposeAction } from '@/app/actions'
+import { toast } from 'sonner'
+import type { Citation } from '@/types/langgraph'
 
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+export function ChatWindow({
+  onCitationsUpdate,
+  onCitationClick,
+  focusedCitation,
+}: ChatWindowProps) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [hasMessages, setHasMessages] = useState(false)
+  const [actionMessageIndices, setActionMessageIndices] = useState<Set<number>>(
+    new Set()
+  )
+  const [isActionLoading, setIsActionLoading] = useState(false)
+  const [conversationId, setConversationId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('currentConversationId')
     }
-  }, [messages]);
+    return null
+  })
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const handleSend = async (message: string) => {
-    // Add user message
-    const userMessage: ChatMessageType = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: message,
-      timestamp: new Date(),
-    };
+  // Helper to save conversationId to localStorage
+  const saveConversationId = (id: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentConversationId', id)
+    }
+    setConversationId(id)
+  }
 
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-    setCitations([]);
+  // Helper to start a new conversation
+  const startNewConversation = () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('currentConversationId')
+    }
+    setConversationId(null)
+    setMessages([])
+  }
 
-    // Create assistant message placeholder
-    const assistantMessageId = crypto.randomUUID();
-    const assistantMessage: ChatMessageType = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-      isStreaming: true,
-    };
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (input.trim() && !isLoading) {
+        handleSubmit(e)
+      }
+    }
+    if (e.key === 'p' && e.metaKey && e.shiftKey && hasMessages && !isLoading) {
+      e.preventDefault()
+      handleProposeAction()
+    }
+  }
 
-    setMessages((prev) => [...prev, assistantMessage]);
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const viewport = scrollAreaRef.current.querySelector(
+        '[data-radix-scroll-area-viewport]'
+      )
+      if (viewport) {
+        setTimeout(() => {
+          viewport.scrollTop = viewport.scrollHeight
+        }, 50)
+      }
+    }
+  }, [messages, isLoading])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) return
+
+    const userMessage: Message = { role: 'user', content: input }
+    const currentInput = input
+    setMessages((prev) => [...prev, userMessage])
+    setInput('')
+    setIsLoading(true)
+    setIsActionLoading(false)
+    setHasMessages(true)
+
+    let fullAnswer = ''
+    const citationsBuffer: Citation[] = []
 
     try {
-      // Prepare conversation history
-      const conversationMessages = messages
-        .filter((m) => m.role !== 'system')
-        .map((m) => ({
-          role: m.role,
-          content: m.content,
-        }));
-
-      // Call streaming API
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/handbook/query', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message,
-          conversationId,
-          messages: conversationMessages,
+          query: currentInput,
+          conversationId: conversationId || undefined,
         }),
-      });
+      })
 
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        throw new Error(`Query failed with status: ${response.status}`)
       }
 
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
 
       if (!reader) {
-        throw new Error('No response body');
+        throw new Error('No response body')
       }
 
-      let buffer = '';
-      let fullContent = '';
-
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { done, value } = await reader.read()
+        if (done) break
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n\n')
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
+          if (!line.startsWith('data: ')) continue
+          
+          try {
+            const data = JSON.parse(line.slice(6))
 
-              if (data.type === 'content') {
-                fullContent += data.content;
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: fullContent }
-                      : msg
-                  )
-                );
-              } else if (data.type === 'citations') {
-                setCitations(data.citations || []);
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, citations: data.citations, isStreaming: false }
-                      : msg
-                  )
-                );
-              } else if (data.type === 'done') {
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, isStreaming: false }
-                      : msg
-                  )
-                );
-              } else if (data.type === 'error') {
-                throw new Error(data.error || 'Unknown error');
-              }
-            } catch (e) {
-              console.error('Error parsing SSE data:', e);
+            switch (data.type) {
+              case 'conversationId':
+                saveConversationId(data.data.conversationId)
+                break
+
+              case 'answer':
+                fullAnswer += data.data.content
+                // Update message in real-time for streaming effect
+                setMessages((prev) => {
+                  const newMessages = [...prev]
+                  const lastMsg = newMessages[newMessages.length - 1]
+                  if (lastMsg?.role === 'assistant') {
+                    lastMsg.content = fullAnswer
+                  } else {
+                    newMessages.push({
+                      role: 'assistant',
+                      content: fullAnswer,
+                      citations: [],
+                    })
+                  }
+                  return newMessages
+                })
+                break
+
+              case 'citation':
+                citationsBuffer.push(data.data)
+                break
+
+              case 'clarification':
+                // Handle clarification request as a separate assistant message
+                const clarificationMsg: Message = {
+        role: 'assistant',
+                  content: data.data.question,
+                  citations: [],
+                }
+                setMessages((prev) => [...prev, clarificationMsg])
+                break
+
+              case 'error':
+                console.error('[ChatWindow] Stream error:', data.data.message)
+                toast.error(data.data.message || 'An error occurred while processing your query')
+                break
+
+              case 'done':
+                // Finalize message with all citations
+                setMessages((prev) => {
+                  const newMessages = [...prev]
+                  const lastMsg = newMessages[newMessages.length - 1]
+                  if (lastMsg?.role === 'assistant') {
+                    lastMsg.citations = citationsBuffer
+                  }
+                  return newMessages
+                })
+                onCitationsUpdate(citationsBuffer)
+                break
             }
+          } catch (parseError) {
+            console.error('[ChatWindow] Error parsing SSE data:', parseError)
           }
         }
       }
     } catch (error) {
-      console.error('Chat error:', error);
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMessageId
-            ? {
-                ...msg,
-                content: 'Sorry, I encountered an error. Please try again.',
-                isStreaming: false,
-              }
-            : msg
-        )
-      );
+      console.error('[ChatWindow] Error in handleSubmit:', error)
+      toast.error(
+        error instanceof Error 
+          ? error.message 
+          : 'Failed to connect to the handbook assistant'
+      )
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
+
+  const handleProposeAction = async () => {
+    setIsLoading(true)
+    setIsActionLoading(true)
+
+    try {
+      const response = await proposeAction(conversationId || undefined)
+      const actionMessage: Message = {
+        role: 'assistant',
+        content: response.answer,
+        citations: response.citations,
+      }
+      setMessages((prev) => {
+        const newIndex = prev.length
+        setActionMessageIndices((indices) => new Set(indices).add(newIndex))
+        return [...prev, actionMessage]
+      })
+      onCitationsUpdate(response.citations)
+      
+      // Update conversationId if returned
+      if (response.conversationId) {
+        saveConversationId(response.conversationId)
+      }
+    } catch (error) {
+      console.error('[ChatWindow] Error fetching action proposal:', error)
+      toast.error(
+        error instanceof Error 
+          ? error.message 
+          : 'Failed to generate action proposal'
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <div className="flex flex-1 overflow-hidden">
-        {/* Main chat area */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <ScrollArea className="flex-1">
-            <div className="flex flex-col">
-              {messages.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center p-8 text-center">
-                  <h1 className="mb-2 text-2xl font-semibold">
-                    GCTS Handbook Assistant
-                  </h1>
-                  <p className="text-muted-foreground max-w-md">
-                    Ask questions about the faculty handbook and get answers with citations.
-                  </p>
-                </div>
-              ) : (
-                messages.map((message) => (
-                  <ChatMessage key={message.id} message={message} />
-                ))
+    <TooltipProvider>
+      <Card className="flex flex-col h-[calc(100vh-8rem)] border-border/40">
+        {messages.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <ScrollArea className="flex-1 p-6" ref={scrollAreaRef}>
+            <div className="space-y-6 pb-4">
+              {messages.map((message, i) => (
+                <ChatMessage
+                  key={i}
+                  message={message}
+                  isActionMessage={actionMessageIndices.has(i)}
+                  onCitationClick={onCitationClick}
+                />
+              ))}
+              {isLoading && (
+                <LoadingIndicator
+                  variant={isActionLoading ? 'action' : 'default'}
+                />
               )}
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
+        )}
 
-          {/* Input area */}
-          <ChatInput onSend={handleSend} disabled={isLoading} />
-        </div>
-
-        {/* Citations panel */}
-        <CitationsPanel citations={citations} />
-      </div>
-    </div>
-  );
+        <ChatInput
+          input={input}
+          isLoading={isLoading}
+          hasMessages={hasMessages}
+          onInputChange={setInput}
+          onSubmit={handleSubmit}
+          onProposeAction={handleProposeAction}
+          onKeyDown={handleKeyDown}
+        />
+      </Card>
+    </TooltipProvider>
+  )
 }
-

@@ -1,62 +1,76 @@
-'use client';
+'use client'
 
-import { Citation } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { FileText } from 'lucide-react';
+import { Card } from '@/components/ui/card'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
+import { BookOpen } from 'lucide-react'
+import { useRef, useEffect } from 'react'
+import type { CitationsPanelProps } from './citations/types'
+import { CitationCard } from './citations/citation-card'
+import { EmptyState } from './citations/empty-state'
 
-interface CitationsPanelProps {
-  citations: Citation[];
-}
+export function CitationsPanel({
+  citations,
+  focusedCitation,
+  onCitationClick,
+}: CitationsPanelProps) {
+  const citationRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
-export function CitationsPanel({ citations }: CitationsPanelProps) {
-  if (citations.length === 0) {
+  useEffect(() => {
+    if (focusedCitation && citationRefs.current[focusedCitation]) {
+      citationRefs.current[focusedCitation]?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    }
+  }, [focusedCitation])
+
+  if (!citations || citations.length === 0) {
     return (
-      <div className="hidden lg:flex h-full flex-col items-center justify-center p-8 text-center text-muted-foreground">
-        <FileText className="h-12 w-12 mb-4 opacity-50" />
-        <p className="text-sm">Citations will appear here</p>
-      </div>
-    );
+      <Card className="h-[calc(100vh-8rem)] border-border/40 p-6">
+        <EmptyState />
+      </Card>
+    )
   }
 
   return (
-    <div className="hidden lg:flex h-full flex-col border-l bg-muted/20">
-      <div className="border-b p-4">
-        <h2 className="text-sm font-semibold">Citations</h2>
-        <p className="text-xs text-muted-foreground mt-1">
-          {citations.length} {citations.length === 1 ? 'source' : 'sources'}
-        </p>
+    <Card className="h-[calc(100vh-8rem)] border-border/40 flex flex-col">
+      <div className="p-4 border-b border-border/40">
+        <div className="flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-medium text-sm">Sources</h3>
+          <span className="ml-auto text-xs text-muted-foreground">
+            {citations.length}{' '}
+            {citations.length === 1 ? 'citation' : 'citations'}
+          </span>
+        </div>
       </div>
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-          {citations.map((citation) => (
-            <Card key={citation.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-sm font-medium leading-tight">
-                    {citation.title}
-                  </CardTitle>
-                </div>
-                {citation.sectionPath && (
-                  <Badge variant="outline" className="w-fit text-xs mt-2">
-                    {citation.sectionPath}
-                  </Badge>
-                )}
-              </CardHeader>
-              <CardContent className="pt-0">
-                <p className="text-xs text-muted-foreground line-clamp-3">
-                  {citation.content}
-                </p>
-                <p className="text-xs text-muted-foreground/70 mt-2">
-                  {citation.source}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-4">
+          {citations.map((citation, idx) => {
+            const isFocused = focusedCitation === citation.pinecone_id
+            const citationDetail = {
+              number: citation.number,
+              section_path: citation.section_path,
+              precise_section: citation.precise_section,
+              content_preview: citation.content_preview,
+            }
+            return (
+              <div key={citation.pinecone_id} className="space-y-2">
+                <CitationCard
+                  citation={citationDetail}
+                  isFocused={isFocused}
+                  onClick={() => onCitationClick(citation.pinecone_id)}
+                  cardRef={(el) =>
+                    (citationRefs.current[citation.pinecone_id] = el)
+                  }
+                />
+                {idx < citations.length - 1 && <Separator className="my-4" />}
+              </div>
+            )
+          })}
         </div>
       </ScrollArea>
-    </div>
-  );
+    </Card>
+  )
 }
-

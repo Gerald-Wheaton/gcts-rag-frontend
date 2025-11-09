@@ -46,6 +46,7 @@ MONGODB_URI=your_mongodb_connection_string
 PINECONE_API_KEY=your_pinecone_api_key_here
 PINECONE_HOST=your_pinecone_host_url
 PINECONE_INDEX_NAME=your_pinecone_index_name
+PINECONE_NAMESPACE=namespace-name
 ```
 
 ### Running the Development Server

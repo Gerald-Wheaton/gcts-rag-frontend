@@ -6,7 +6,7 @@ const pinecone = new Pinecone({
 
 export default pinecone;
 
-export async function getPineconeIndex(indexName?: string) {
+export async function getPineconeIndex(indexName?: string, namespace?: string) {
   if (!process.env.PINECONE_API_KEY) {
     throw new Error('Please add your Pinecone API key to .env.local');
   }
@@ -17,10 +17,18 @@ export async function getPineconeIndex(indexName?: string) {
     throw new Error('Please add your Pinecone index name to .env.local');
   }
 
-  // If PINECONE_HOST is provided, use it (useful for custom endpoints)
+  // Get the base index
+  let index;
   if (process.env.PINECONE_HOST) {
-    return pinecone.index(name, process.env.PINECONE_HOST);
+    index = pinecone.index(name, process.env.PINECONE_HOST);
+  } else {
+    index = pinecone.index(name);
   }
 
-  return pinecone.index(name);
+  // If namespace is provided, return the namespaced index
+  if (namespace) {
+    return index.namespace(namespace);
+  }
+
+  return index;
 }
