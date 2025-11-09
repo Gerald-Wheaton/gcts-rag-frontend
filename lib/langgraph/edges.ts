@@ -91,18 +91,36 @@ export function routeAfterRetrieval(state: HandbookGraphStateType): string {
     return 'rerankChunks'
   }
 
-  // If few chunks, skip reranking and go straight to synthesis
-  return 'synthesizeAnswer'
+  // If few chunks, skip reranking and go straight to section reconstruction
+  return 'reconstructSections'
 }
 
 /**
  * Route after reranking
- * Proceed to synthesis after reranking
+ * Proceed to section reconstruction after reranking
  *
  * @param state - Current graph state
  * @returns Next node name
  */
 export function routeAfterReranking(state: HandbookGraphStateType): string {
+  // Check for errors
+  if (state.error) {
+    return 'end'
+  }
+
+  return 'reconstructSections'
+}
+
+/**
+ * Route after section reconstruction
+ * Proceed to synthesis after reconstructing sections
+ *
+ * @param state - Current graph state
+ * @returns Next node name
+ */
+export function routeAfterReconstruction(
+  state: HandbookGraphStateType
+): string {
   // Check for errors
   if (state.error) {
     return 'end'
@@ -176,6 +194,7 @@ export const ROUTING_MAP = {
   embedQuery: routeAfterEmbedding,
   retrieveVectors: routeAfterRetrieval,
   rerankChunks: routeAfterReranking,
+  reconstructSections: routeAfterReconstruction,
   synthesizeAnswer: routeAfterSynthesis,
   formatCitations: routeAfterCitations,
 } as const
@@ -188,6 +207,7 @@ export const NODE_NAMES = {
   EMBED_QUERY: 'embedQuery',
   RETRIEVE_VECTORS: 'retrieveVectors',
   RERANK_CHUNKS: 'rerankChunks',
+  RECONSTRUCT_SECTIONS: 'reconstructSections',
   SYNTHESIZE_ANSWER: 'synthesizeAnswer',
   FORMAT_CITATIONS: 'formatCitations',
   REQUEST_CLARIFICATION: 'requestClarification',

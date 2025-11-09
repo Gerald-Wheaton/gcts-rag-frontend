@@ -87,6 +87,7 @@ export const CitationSchema = z.object({
       'Last element from MongoDB section_path array (most specific subsection)'
     ),
   content_preview: z.string().describe('Preview of cited content'),
+  content: z.string().describe('Full content of the cited section'),
   pinecone_id: z.string().describe('Reference ID for full lookup'),
   similarity_score: z.number().describe('Relevance score'),
   // Optional metadata (toggleable via config)
@@ -154,6 +155,44 @@ export const ClarificationOutputSchema = z.object({
 })
 
 export type ClarificationOutput = z.infer<typeof ClarificationOutputSchema>
+
+/**
+ * Action item schema for action proposals
+ */
+export const ActionItemSchema = z.object({
+  title: z.string().describe('Short, descriptive title for the action'),
+  description: z
+    .string()
+    .describe('Brief explanation of what this action accomplishes'),
+  steps: z
+    .array(z.string())
+    .optional()
+    .describe('Optional array of concrete steps to take'),
+  supporting_citations: z
+    .array(z.number().int().positive())
+    .describe(
+      'Array of citation numbers [1], [2], etc. that support this action'
+    ),
+})
+
+export type ActionItem = z.infer<typeof ActionItemSchema>
+
+/**
+ * Action proposal schema - contains 1-3 actionable courses
+ */
+export const ActionProposalSchema = z.object({
+  actions: z
+    .array(ActionItemSchema)
+    .min(1)
+    .max(3)
+    .describe('Array of 1-3 actionable courses'),
+  summary: z
+    .string()
+    .optional()
+    .describe('Optional summary of the overall situation'),
+})
+
+export type ActionProposal = z.infer<typeof ActionProposalSchema>
 
 /**
  * Conversation document schema for MongoDB

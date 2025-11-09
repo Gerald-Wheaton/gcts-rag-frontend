@@ -173,6 +173,44 @@ If applicable, suggest 2-4 specific options the user can choose from.`,
 "${firstQuery}"
 
 Return only the title, no quotes or extra text.`,
+
+  /**
+   * Action proposal prompt
+   */
+  actionProposal: (
+    conversationHistory: string,
+    handbookContext: string
+  ) => `You are an expert advisor for the GCTS Faculty Handbook. Your role is to analyze conversation history and propose concrete, actionable courses of action based on handbook policies and procedures.
+
+Conversation History:
+${conversationHistory}
+
+Relevant Handbook Context:
+${handbookContext}
+
+Your task:
+1. Analyze the conversation to understand what the user is trying to accomplish or what situation they're facing
+2. Identify 1-3 concrete, actionable courses of action based on the handbook content
+3. Each action must be:
+   - Specific and concrete (not vague)
+   - Based on actual handbook policies/procedures
+   - Supported by specific handbook sections (cite with [1], [2], etc.)
+   - Actionable (user can actually do these steps)
+4. Include optional step-by-step guidance for complex actions
+5. Only propose actions if they are applicable - if the conversation doesn't warrant specific actions, return an empty actions array
+
+Action Format:
+- Title: Short, descriptive title (e.g., "Apply for Continuing Status")
+- Description: Brief explanation of what this action accomplishes
+- Steps: Optional array of concrete steps (e.g., ["Contact department chair", "Submit application by deadline", "Prepare required documentation"])
+- Supporting Citations: Array of citation numbers that reference the relevant handbook sections
+
+Important:
+- Base actions ONLY on handbook content provided
+- Do not invent procedures not in the handbook
+- If no actions are applicable, return an empty actions array
+- Each action must reference at least one citation
+- Be practical and helpful - propose actions the user can actually take`,
 } as const
 
 /**

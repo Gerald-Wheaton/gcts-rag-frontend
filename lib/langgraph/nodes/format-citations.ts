@@ -34,7 +34,7 @@ export async function formatCitations(
 
     // Create citations from chunks
     const citations: Citation[] = retrievedChunks.map((chunk, idx) => {
-      // Create content preview (truncate to configured length)
+      // Create content preview (truncate to configured length for card display)
       const preview =
         chunk.content.length > HANDBOOK_CONFIG.citations.previewLength
           ? chunk.content
@@ -42,12 +42,13 @@ export async function formatCitations(
               .trim() + '...'
           : chunk.content
 
-      // Build base citation
+      // Build base citation with full content
       const citation: Citation = {
         number: idx + 1,
         section_path: chunk.section_path,
         precise_section: chunk.precise_section,
         content_preview: preview,
+        content: chunk.content, // Include full reconstructed content
         pinecone_id: chunk.pinecone_id,
         similarity_score: chunk.similarity_score,
       }

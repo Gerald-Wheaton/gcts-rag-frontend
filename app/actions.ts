@@ -47,33 +47,55 @@ export async function getAgentResponse(
 
 /**
  * Propose action based on conversation history
- * Returns a structured action plan
+ * Returns a structured action plan with citations
  */
 export async function proposeAction(
   conversationId?: string
 ): Promise<ChatResponse> {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 1000))
+  if (!conversationId) {
+    throw new Error('Conversation ID is required to propose actions')
+  }
 
-  // Return mock action proposal with proper Citation objects
-  return {
-    answer: `Based on our conversation, here's a recommended action plan:\n\n1. Review the relevant handbook sections\n2. Consult with your department chair\n3. Prepare necessary documentation\n4. Submit your request through proper channels\n5. Follow up within 2 weeks`,
-    conversationId: conversationId || crypto.randomUUID(),
-    citations: [
-      {
-        number: 1,
-        section_path: 'Section 4.2: Sabbatical Leave Policy',
-        content_preview: 'Mock sabbatical leave policy content...',
-        pinecone_id: 'mock-action-1',
-        similarity_score: 0.92,
+  try {
+    // For server actions, we can call the API route directly
+    // In production, use absolute URL; in development, use localhost
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_URL ||
+      (process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:3000')
+    
+    const response = await fetch(`${baseUrl}/api/handbook/propose-action`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      {
-        number: 2,
-        section_path: 'Section 4.2.2: Application Procedures',
-        content_preview: 'Mock application procedures content...',
-        pinecone_id: 'mock-action-2',
-        similarity_score: 0.89,
-      },
-    ],
+      body: JSON.stringify({ conversationId }),
+      cache: 'no-store', // Ensure fresh data
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(
+        errorData.error || `Failed to propose actions: ${response.statusText}`
+      )
+    }
+
+    const data = await response.json()
+
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to propose actions')
+    }
+
+    return {
+      answer: data.answer || '',
+      conversationId: data.conversationId || conversationId,
+      citations: data.citations || [],
+    }
+  } catch (error) {
+    console.error('[proposeAction] Error:', error)
+    throw error instanceof Error
+      ? error
+      : new Error('Failed to propose actions')
   }
 }
