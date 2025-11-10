@@ -30,9 +30,9 @@ export function ChatMessage({
         <div className="flex flex-col gap-2">
           <div
             className={cn(
-              'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
+              'shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
               isActionMessage
-                ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500'
+                ? 'bg-linear-to-r from-purple-500 via-pink-500 to-orange-500'
                 : 'bg-primary'
             )}
           >
@@ -81,7 +81,7 @@ export function ChatMessage({
                       className="text-xs opacity-70 cursor-pointer hover:opacity-100 hover:underline transition-opacity"
                       onClick={() => onCitationClick(citation.pinecone_id)}
                     >
-                      • {citation.precise_section}
+                      • [{citation.number}] {citation.precise_section}
                     </li>
                   ))}
                 </ul>

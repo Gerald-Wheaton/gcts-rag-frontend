@@ -238,7 +238,7 @@ export function ChatWindow({
 
   return (
     <TooltipProvider>
-      <Card className="flex flex-col h-[calc(100vh-8rem)] border-border/40">
+      <Card className="flex flex-col h-full border-border/40">
         {messages.length === 0 ? (
           <EmptyState />
         ) : (

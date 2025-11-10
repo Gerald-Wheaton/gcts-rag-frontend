@@ -47,7 +47,7 @@ export function CitationsPanel({
 
   if (!citations || citations.length === 0) {
     return (
-      <Card className="h-[calc(100vh-8rem)] border-border/40 p-6">
+      <Card className="h-full border-border/40 p-6">
         <EmptyState />
       </Card>
     )
@@ -55,7 +55,7 @@ export function CitationsPanel({
 
   return (
     <>
-      <Card className="h-[calc(100vh-8rem)] border-border/40 flex flex-col">
+      <Card className="h-full border-border/40 flex flex-col">
         <div className="p-4 border-b border-border/40">
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
